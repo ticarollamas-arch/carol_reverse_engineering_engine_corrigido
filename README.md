@@ -1,192 +1,73 @@
-# CAROL Reverse Engineering Engine
+<p align="center"><img src="assets/banner.svg" alt="Engenheiro Reverso CAROL — análise clean-room de APK/ZIP com limites de segurança" width="100%"></p>
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
-[![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
-[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-v4-38B2AC?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
-[![Security Hardened](https://img.shields.io/badge/Security-ZipSlip%20%26%20ZipBomb%20Defended-22C55E?logo=security)](https://owasp.org/)
-[![Mobile Responsive](https://img.shields.io/badge/Mobile-320px--4K%20Compliant-purple)](https://developer.mozilla.org/)
+# Engenheiro Reverso (CAROL) — análise clean-room de APK e ZIP com IA
 
-Plataforma full-stack para **publicação de arquivos no GitHub** e **análise técnica clean-room**. O fluxo de análise profunda desta versão aceita arquivos `.apk` e `.zip`; outros formatos são identificados pelo frontend, mas precisam de analisadores específicos antes de serem tratados como engenharia reversa completa. A saída sintetiza um relatório e uma especificação para implementar uma alternativa independente.
+Aplicação full-stack (**React + Vite** no front-end e **Express** no back-end) que faz **engenharia reversa clean-room** de pacotes **APK e ZIP**. O servidor extrai o pacote com **apktool** e **JADX**, reúne manifesto, estrutura e trechos de código, e envia esse resumo a um **modelo de linguagem à sua escolha** (Ollama, NVIDIA NIM, OpenAI, DeepSeek, Groq ou endpoint próprio). O modelo devolve um relatório de arquitetura e um **prompt mestre** para reimplementar o projeto de forma independente. A interface também publica arquivos no GitHub (ZipToGit).
 
----
+> Mesmo código do [Engenheiro-Reverso](https://github.com/ticarollamas-arch/Engenheiro-Reverso).
 
-## 🏛️ Visão Geral da Arquitetura
+## Recursos
 
-```text
- ┌─────────────────────────────────────────────────────────────────────────────┐
- │                           CLIENTE (Vite + React SPA)                        │
- │  ┌───────────────────┐  ┌───────────────────────┐  ┌─────────────────────┐  │
- │  │ Universal Uploader│  │ Magic Byte Inspector  │  │ Local Tree Shaking  │  │
- │  │ (Drag & Drop)     │  │ (PKZip, GZ, RAR, PE)  │  │ (node_modules, etc) │  │
- │  └─────────┬─────────┘  └───────────┬───────────┘  └──────────┬──────────┘  │
- └────────────┼────────────────────────┼─────────────────────────┼─────────────┘
-              ▼                        ▼                         ▼
- ┌─────────────────────────────────────────────────────────────────────────────┐
- │                         BACKEND SERVICE (Express Node.js)                   │
- │                                                                             │
- │  ┌───────────────────────────────────────────────────────────────────────┐  │
- │  │  🛡️ Camada de Segurança                                                │  │
- │  │  • Zip Slip Defesa: Sanitização estrita de path traversal (../ e abs) │  │
- │  │  • Zip Bomb Defesa: Cota rígida de 500 MB descompactados              │  │
- │  │  • Isolamento: Sandbox em fs.mkdtempSync(os.tmpdir())                 │  │
- │  │  • Recursão Aninhada: Descompactação controlada até nível 3           │  │
- │  └───────────────────────────────────┬───────────────────────────────────┘  │
- │                                      ▼                                      │
- │  ┌───────────────────────────────────────────────────────────────────────┐  │
- │  │  🧠 Universal AI Provider Hub (OpenAI-Compatible Dispatcher)          │  │
- │  │                                                                       │  │
- │  │  [NVIDIA NIM Free Tier] ──► integrate.api.nvidia.com (Llama 3.3 70B)   │  │
- │  │  [DeepSeek Official]   ──► api.deepseek.com (deepseek-chat / R1)      │  │
- │  │  [OpenAI API]          ──► api.openai.com (gpt-4o / gpt-4o-mini)      │  │
- │  │  [Meta Llama / Groq]   ──► api.groq.com (llama-3.3-70b-versatile)     │  │
- │  │  [Ollama Local / Free] ──► localhost:11434/v1 (100% Offline, sem key) │  │
- │  │  [Custom Endpoint]     ──► Base URL personalizada + modelo custom     │  │
- │  └───────────────────────────────────┬───────────────────────────────────┘  │
- └──────────────────────────────────────┼──────────────────────────────────────┘
-                                        ▼
- ┌─────────────────────────────────────────────────────────────────────────────┐
- │                       SAÍDAS E INTEGRAÇÕES EXTERNAS                         │
- │  ┌───────────────────────────────────┐  ┌────────────────────────────────┐  │
- │  │  GitHub REST & Git Database API   │  │  Clean-Room Specification &    │  │
- │  │  (Blobs, Trees, Commits, Refs)    │  │  Master Prompt Copiável (.md)  │  │
- │  └───────────────────────────────────┘  └────────────────────────────────┘  │
- └─────────────────────────────────────────────────────────────────────────────┘
-```
+- **Landing page** e páginas de Termos, Privacidade e Cookies; a ferramenta fica em `/app`.
+- **Envio de pacotes** com árvore de arquivos, pré-visualização e seção dedicada a APK.
+- **Análise real no servidor** (`POST /api/analyze-architecture`, upload multipart):
+  - `apktool` decodifica recursos e manifesto (timeout de 60 s);
+  - `JADX` descompila até 30 arquivos Java (512 MB de RAM, timeout de 120 s);
+  - ZIPs são percorridos por inteiro, com leitura dos arquivos de texto relevantes;
+  - limites de 250 MB por upload, 12 mil entradas, 500 MB descompactados e timeout de 3 minutos;
+  - os arquivos temporários são apagados ao final.
+- **Vários provedores de IA**: NVIDIA NIM (padrão), OpenAI, DeepSeek, Groq, Ollama ou endpoint próprio, escolhidos no painel e enviados pelos cabeçalhos `x-ai-provider`, `x-ai-api-key`, `x-ai-base-url` e `x-ai-model`.
+- **Respostas honestas**: se o modelo não devolver JSON válido, o texto real é preservado em vez de um relatório inventado; falhas do apktool ou do JADX são registradas.
+- **Relatório gerado por IA**: visão geral, stack, arquitetura, lógica passo a passo, prompt mestre e dicas de diferenciação visual, guiado pelo prompt de sistema em `src/prompts/carol-master.md`.
+- **Publicação no GitHub** com token pessoal e pipeline de envio.
+- **Proteções** contra *Zip Slip* e *zip bomb* no tratamento dos pacotes.
 
----
+## Instalação
 
-## 🤖 Hub Universal de Motores de IA (Multi-Provider)
+Requisitos: **Node.js 20+**, **apktool** e **JADX** no PATH (para análise de APK) e a chave de pelo menos um provedor de IA (ou um Ollama).
 
-A plataforma pode ser configurada para usar provedores compatíveis com a especificação **OpenAI Chat Completions API**, suportando tanto computação em nuvem gratuita quanto inferência local offline:
-
-| Provedor | Endpoint Base | Modelo Recomendado | Custo / Obtenção |
-| :--- | :--- | :--- | :--- |
-| **NVIDIA NIM** | `https://integrate.api.nvidia.com/v1` | `meta/llama-3.3-70b-instruct` | **Free Tier Oficial** via [build.nvidia.com](https://build.nvidia.com) |
-| **DeepSeek** | `https://api.deepseek.com/v1` | `deepseek-chat` / `deepseek-reasoner` | [platform.deepseek.com](https://platform.deepseek.com) |
-| **OpenAI** | `https://api.openai.com/v1` | `gpt-4o-mini` / `gpt-4o` | [platform.openai.com](https://platform.openai.com) |
-| **Meta Llama (Groq)** | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | [console.groq.com](https://console.groq.com) |
-| **Ollama (Local)** | `http://localhost:11434/v1` | `llama3.3`, `deepseek-r1`, `mistral` | **100% Grátis & Offline**, não requer chave |
-| **Personalizado** | `http://...` ou `https://...` | Qualquer modelo instruído | vLLM, LM Studio, TGI, OpenRouter |
-
-### 🔑 Como Obter a Chave Gratuita da NVIDIA (Free Tier):
-1. Acesse o catálogo da NVIDIA: [https://build.nvidia.com](https://build.nvidia.com).
-2. Entre com sua conta gratuita de desenvolvedor.
-3. Selecione o modelo `meta/llama-3.3-70b-instruct` ou `deepseek-ai/deepseek-r1`.
-4. Clique em **"Get API Key"** e copie sua chave `nvapi-...`.
-5. Cole na interface do app (fica salva no seu `localStorage`) ou defina no arquivo `.env`.
-
-### 🦙 Como Usar com Ollama Local (Sem Chave):
-1. Instale o Ollama via [ollama.com](https://ollama.com).
-2. Baixe o modelo: `ollama run llama3.3` ou `ollama run deepseek-r1`.
-3. No painel de IA do app, selecione **Ollama (Local)**.
-4. O sistema se comunica diretamente com `http://localhost:11434/v1` com zero custo de tokens e total privacidade.
-
----
-
-## 📦 Formatos Suportados & Inspeção Real por Magic Bytes
-
-O sistema não confia em extensões declaradas pelo usuário; cada arquivo é validado pelos seus bytes mágicos iniciais:
-
-| Formato | Extensões | Assinatura (Magic Bytes) | Estado nesta versão |
-| :--- | :--- | :--- | :--- |
-| **ZIP / APK** | `.zip`, `.apk` | `50 4B 03 04` | Descompactação, parser de árvore e extração de DEX/Manifest |
-| **GZIP / Tarball** | `.tar.gz`, `.tgz` | `1F 8B` | Detectado no frontend; análise profunda ainda não implementada |
-| **RAR Archive** | `.rar` | `52 61 72 21` | Detectado no frontend; análise profunda ainda não implementada |
-| **7-Zip** | `.7z` | `37 7A BC AF 27 1C` | Detectado no frontend; análise profunda ainda não implementada |
-| **Binário ELF** | `.so`, `.bin` | `7F 45 4C 46` | Detectado no frontend; análise profunda ainda não implementada |
-| **Executável Windows** | `.exe`, `.dll` | `4D 5A` (MZ header) | Detectado no frontend; análise profunda ainda não implementada |
-| **Android DEX** | `.dex` | `64 65 78 0A` | O DEX dentro de APK pode ser analisado via JADX quando instalado |
-
----
-
-## 🛡️ Protocolo de Segurança e Defesa em Profundidade
-
-1. **Defesa contra Zip Slip (Path Traversal - CWE-22):**
-   - Rejeição imediata de arquivos com componentes `..`.
-   - Rejeição de caminhos absolutos (`/`, `\`, `C:\`).
-   - Normalização e validação de que o caminho de destino resolvido esteja estritamente dentro da sandbox temporária (`resolvedPath.startsWith(tempDir)`).
-2. **Defesa contra Zip Bomb (DoS de Descompressão - CWE-409):**
-   - Contabilizador acumulativo de bytes descompactados.
-   - Interrupção do pipeline caso o tamanho total exceda **500 MB** (limite configurável).
-3. **Recursão de ZIPs Aninhados:**
-   - Suporte a contêineres aninhados com profundidade máxima fixada em **3 níveis** para contenção de recursão infinita.
-4. **Isolamento de Diretório Temporário:**
-   - Cada operação cria uma sandbox randômica via `fs.mkdtempSync(path.join(os.tmpdir(), 'ziptogit-'))`, destruída com `fs.rmSync(tempDir, { recursive: true, force: true })` no bloco `finally`.
-5. **Isolamento de Chaves:**
-   - Chaves de API inseridas na UI nunca são gravadas no servidor e nunca são expostas em logs de erro ou respostas HTTP.
-
----
-
-## 📱 Contrato de Responsividade Mobile
-
-A aplicação foi rigorosamente testada e auditada nas larguras mais comuns do mercado:
-- **320px** (iPhone SE 1st Gen, telas ultra-compactas)
-- **375px** (iPhone SE 2nd/3rd Gen, iPhone X/11/12 mini)
-- **414px** (iPhone Plus / Pro Max, Android médio)
-- **768px** (iPads, Tablets portrait)
-- **1024px+** (Desktops, Telas Ultrawide e 4K)
-
-### Recomendações de responsividade:
-- `*, *::before, *::after { box-sizing: border-box; }` global.
-- `html, body { max-width: 100%; overflow-x: hidden; }`
-- Substituição total de larguras fixas por `max-w-full`, `w-full` e `clamp()`.
-- Botões e barras de ações empilham responsivamente (`flex-col sm:flex-row`).
-- Verificação técnica: `document.documentElement.scrollWidth === document.documentElement.clientWidth` retorna **true** em todos os breakpoints.
-
----
-
-## 🛠️ Endpoints da API REST
-
-### 1. `POST /api/analyze-architecture`
-Recebe o arquivo no campo multipart `file` e o nome em `projectName`, inspeciona o conteúdo e envia evidências para o provedor configurado.
-- **Headers Opcionais:**
-  - `x-ai-provider`: `nvidia` | `deepseek` | `openai` | `groq` | `ollama` | `custom`
-  - `x-ai-api-key`: Chave da API do provedor escolhido
-  - `x-ai-base-url`: URL base customizada (ex: `http://localhost:11434/v1`)
-  - `x-ai-model`: Nome do modelo (ex: `llama3.3`, `gpt-4o-mini`, `deepseek-chat`)
-- **Body multipart/form-data:** campo obrigatório `file` (arquivo ZIP ou APK) e campo opcional `projectName` (nome legível do projeto). O arquivo é enviado como binário; não envie o conteúdo do arquivo em JSON.
-- **Retorno:** JSON com `overview`, `techStack`, `architectureBreakdown`, `stepByStepLogic`, `masterPrompt` e `visualDifferentiationTips`.
-
-## 🚀 Como Executar
-
-### Pré-requisitos:
-- Node.js 18+ ou 20+
-- npm ou pnpm
-
-### Instalação & Execução:
 ```bash
-# 1. Clonar o repositório
-git clone https://github.com/seu-usuario/ziptogit.git
-cd ziptogit
-
-# 2. Instalar dependências
+git clone https://github.com/ticarollamas-arch/carol_reverse_engineering_engine_corrigido.git
+cd carol_reverse_engineering_engine_corrigido
 npm install
-
-# 3. Configurar variáveis de ambiente (opcional, todas têm suporte via UI)
 cp .env.example .env
-
-# 4. Iniciar em desenvolvimento full-stack
-npm run dev
-
-# 5. Build de produção
-npm run build
-npm start
 ```
 
-Acesse em: `http://localhost:3000`. O processamento profundo atualmente aceita ZIP e APK; para APK, Apktool e JADX precisam estar instalados no servidor. A saída depende de um provedor de IA válido e configurado.
+| Variável | Uso |
+|---|---|
+| `NVIDIA_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY` | Chaves dos provedores (também podem ser informadas no painel) |
+| `OLLAMA_BASE_URL` | Ollama local |
+| `PORT` | Porta do servidor |
 
----
+No Termux: `pkg install apktool` e instale o JADX manualmente; o limite de memória já foi pensado para celulares.
 
-## 📄 Metodologia Clean-Room Reverse Engineering
+## Como usar
 
-A engenharia reversa em "sala limpa" separa a especificação funcional da implementação do código:
-1. **Fase de Análise:** O aplicativo decompõe o binário ou arquivo compactado para mapear dependências, rotas, contratos de dados e arquitetura necessária.
-2. **Fase de Purificação:** Nenhum trecho de código legado, imagem proprietária, logotipo ou marca registrada é copiado ou reutilizado.
-3. **Fase de Geração:** Um **Prompt Mestre** é sintetizado para que o desenvolvedor instrua sua IA favorita a reescrever o sistema com design autoral, boas práticas modernas e código 100% autêntico.
+```bash
+npm run dev        # servidor Express + Vite
+npm run build      # build de produção
+```
 
----
+Abra `/app`, escolha o provedor, envie o APK ou ZIP e gere o relatório. Para publicar um pacote no GitHub, informe o token, o repositório e a branch.
 
-## 📜 Licença
+## Estrutura
 
-Distribuído sob a licença MIT. Consulte `LICENSE` para mais informações.
+```
+server.ts               API Express (upload + análise com o provedor escolhido)
+backend-analyzer.ts     extração com apktool e JADX
+src/                    front-end React (landing, app, páginas legais)
+src/prompts/            prompts de sistema da análise
+RELATORIO-CORRECOES.md  diagnóstico e correções desta versão
+```
+
+## Uso responsável
+
+Analise apenas pacotes próprios ou com autorização do titular. A especificação gerada serve para uma implementação original: não copie código, marcas ou ativos de terceiros e não remova avisos de autoria ou licença.
+
+## Tecnologias
+
+TypeScript · React 19 · Vite · Tailwind CSS · Express · Multer · adm-zip · JSZip · apktool · JADX · NVIDIA NIM · OpenAI · DeepSeek · Groq · Ollama · GitHub REST API
+
+## Licença
+
+Distribuído sob a licença MIT. Veja [LICENSE](LICENSE).
